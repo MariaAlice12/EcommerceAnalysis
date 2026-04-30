@@ -1,0 +1,68 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: superset_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "3306:3306"
+    networks:
+      - superset_net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: superset_redis
+    restart: unless-stopped
+    networks:
+      - superset_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  superset:
+    build:
+      context: ./superset
+      dockerfile: Dockerfile
+    container_name: superset_app
+    restart: unless-stopped
+    environment:
+      SUPERSET_CONFIG_PATH: /app/superset_config.py
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+    volumes:
+      - ./superset/superset_config.py:/app/superset_config.py:ro
+      - superset_home:/app/superset_home
+    ports:
+      - "8088:8088"
+    networks:
+      - superset_net
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+networks:
+  superset_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  superset_home:
