@@ -69,6 +69,21 @@ class SupersetClient:
         self._sync_columns(ds_id, sql)
         return ds_id, action
 
+    def mark_dttm_column(self, ds_id: int, column_name: str) -> None:
+        r = requests.get(f"{self.base}/api/v1/dataset/{ds_id}", headers=self._headers)
+        columns = r.json()["result"]["columns"]
+        updated = []
+        for c in columns:
+            col = {"id": c["id"], "column_name": c["column_name"]}
+            if c["column_name"] == column_name:
+                col.update({"type": "TIMESTAMP", "is_dttm": True})
+            updated.append(col)
+        requests.put(
+            f"{self.base}/api/v1/dataset/{ds_id}",
+            headers=self._headers,
+            json={"columns": updated},
+        )
+
     def _sync_columns(self, ds_id: int, sql: str) -> None:
         """Add columns derived from SQL that the refresh endpoint misses on virtual datasets."""
         import re

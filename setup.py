@@ -32,12 +32,15 @@ def main():
             print(f"  ERRO  {e}", file=sys.stderr)
             sys.exit(1)
 
+    client.mark_dttm_column(ds_ids["receita_mensal"], "mes")
+
     # ── Charts ────────────────────────────────────────────────────────────────
     print("\n── Charts ────────────────────────────────────────────")
     chart_ids = {}
     for chart in CHARTS:
         ds_id = ds_ids[chart["dataset"]]
-        params = json.dumps({**chart["params"], "viz_type": chart["viz_type"]})
+        raw = chart["params_fn"](ds_ids) if "params_fn" in chart else chart["params"]
+        params = json.dumps({**raw, "viz_type": chart["viz_type"]})
         try:
             chart_id, action = client.upsert_chart(chart["name"], chart["viz_type"], ds_id, params)
             chart_ids[chart["name"]] = chart_id
@@ -49,7 +52,7 @@ def main():
     # ── Dashboard ─────────────────────────────────────────────────────────────
     print("\n── Dashboard ─────────────────────────────────────────")
     position_json = json.dumps(build_layout(chart_ids))
-    metadata = json.dumps(build_metadata(ds_ids["receita_mensal"], chart_ids))
+    metadata = json.dumps(build_metadata(ds_ids["receita_mensal"], ds_ids["comparacao_mensal"], chart_ids))
 
     try:
         dash_id, action = client.upsert_dashboard(
